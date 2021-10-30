@@ -232,17 +232,15 @@ class LMUFFT(nn.Module):
         self.theta = theta
 
         self.W_u = nn.Linear(in_features = input_size, out_features = 1)
-        self.f_u = nn.ReLU()
         self.W_h = nn.Linear(in_features = memory_size + input_size, out_features = hidden_size)
-        self.f_h = nn.ReLU()
-
+        
         A, B = self.stateSpaceMatrices()
         self.register_buffer("A", A) # [memory_size, memory_size]
         self.register_buffer("B", B) # [memory_size, 1]
 
         H, fft_H = self.impulse()
         self.register_buffer("H", H) # [memory_size, seq_len]
-        self.register_buffer("fft_H", fft_H) # [memory_size, seq_len + 1]
+        self.register_buffer("fft_H", fft_H.unsqueeze(0)) # [1, memory_size, seq_len + 1]
 
 
     def stateSpaceMatrices(self):
@@ -297,23 +295,23 @@ class LMUFFT(nn.Module):
         batch_size, seq_len, input_size = x.shape
 
         # Equation 18 of the paper
-        u = self.f_u(self.W_u(x)) # [batch_size, seq_len, 1]
+        u = torch.relu(self.W_u(x)) # [batch_size, seq_len, 1]
 
         # Equation 26 of the paper
-        fft_input = u.permute(0, 2, 1) # [batch_size, 1, seq_len]
-        fft_u = fft.rfft(fft_input, n = 2*seq_len, dim = -1) # [batch_size, seq_len, seq_len+1]
+        fft_input = u.transpose(1, 2) # [batch_size, 1, seq_len]
+        fft_u = fft.rfft(fft_input, n=2 * seq_len, dim=-1) # [batch_size, seq_len, seq_len+1]
 
         # Element-wise multiplication (uses broadcasting)
         # [batch_size, 1, seq_len+1] * [1, memory_size, seq_len+1]
-        temp = fft_u * self.fft_H.unsqueeze(0) # [batch_size, memory_size, seq_len+1]
+        temp = fft_u * self.fft_H  # [batch_size, memory_size, seq_len+1]
 
-        m = fft.irfft(temp, n = 2*seq_len, dim = -1) # [batch_size, memory_size, seq_len+1]
-        m = m[:, :, :seq_len] # [batch_size, memory_size, seq_len]
-        m = m.permute(0, 2, 1) # [batch_size, seq_len, memory_size]
+        m = fft.irfft(temp, n=2 * seq_len, dim=-1) # [batch_size, memory_size, seq_len+1]
+        m = m[:, :, :-1] # [batch_size, memory_size, seq_len]
+        m = m.transpose(1, 2) # [batch_size, seq_len, memory_size]
 
         # Equation 20 of the paper (W_m@m + W_x@x  W@[m;x])
-        input_h = torch.cat((m, x), dim = -1) # [batch_size, seq_len, memory_size + input_size]
-        h = self.f_h(self.W_h(input_h)) # [batch_size, seq_len, hidden_size]
+        input_h = torch.cat((m, x), dim=-1) # [batch_size, seq_len, memory_size + input_size]
+        h = torch.relu(self.W_h(input_h)) # [batch_size, seq_len, hidden_size]
 
         h_n = h[:, -1, :] # [batch_size, hidden_size]
 
