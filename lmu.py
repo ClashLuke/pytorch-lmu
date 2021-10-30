@@ -58,10 +58,10 @@ class LMUFFT(nn.Module):
         batch_size, input_size, seq_len = x.shape
         out = self.W_u(x)
         out0 = out[:, :self.hidden_size]
-        u = torch.relu(out[:, self.hidden_size:) # [batch_size, seq_len, 1]
-        fft_u = fft.rfft(fft_input, n=2 * seq_len, dim=-1) # [batch_size, seq_len, seq_len+1]
-        temp = fft_u.view(-1, 1, seq_len) * self.fft_H  # [batch_size, memory_size, seq_len+1]
-        m = fft.irfft(temp, n=2 * seq_len, dim=-1) # [batch_size, memory_size, seq_len+1]
-        m = m[:, :, :-1] # [batch_size, memory_size, seq_len]
+        u = torch.relu(out[:, self.hidden_size:)
+        fft_u = fft.rfft(fft_input, n=2 * seq_len, dim=-1)
+        temp = fft_u.view(-1, 1, seq_len) * self.fft_H
+        m = fft.irfft(temp, n=2 * seq_len, dim=-1)
+        m = m[:, :, :-1]
         m = m.view(batch_size, -1, seq_len)
-        return self.W_h(m) + out0  # [batch_size, seq_len, hidden_size]
+        return self.W_h(m) + out0 
