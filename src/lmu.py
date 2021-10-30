@@ -73,24 +73,16 @@ class LMUFFT(nn.Module):
         A = torch.from_numpy(A).float() # [memory_size, memory_size]
         B = torch.from_numpy(B).float() # [memory_size, 1]
         
-        H, fft_H = self.impulse()
-        self.register_buffer("H", H) # [memory_size, seq_len]
-        self.register_buffer("fft_H", fft_H.unsqueeze(0)) # [1, memory_size, seq_len + 1]
-
-    def impulse(self):
-        """ Returns the matrices H and the 1D Fourier transform of H (Equations 23, 26 of the paper) """
-
         H = []
         A_i = torch.eye(self.memory_size)
         for t in range(self.seq_len):
-            H.append(A_i @ self.B)
-            A_i = self.A @ A_i
+            H.append(A_i @ B)
+            A_i = A @ A_i
 
-        H = torch.cat(H, dim = -1) # [memory_size, seq_len]
-        fft_H = fft.rfft(H, n = 2*self.seq_len, dim = -1) # [memory_size, seq_len + 1]
+        H = torch.cat(H, dim=-1) # [memory_size, seq_len]
+        fft_H = fft.rfft(H, n=2*self.seq_len, dim=-1) # [memory_size, seq_len + 1]
 
-        return H, fft_H
-
+        self.register_buffer("fft_H", fft_H.unsqueeze(0)) # [1, memory_size, seq_len + 1]
 
     def forward(self, x):
         """
