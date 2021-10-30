@@ -8,20 +8,6 @@ from torch.nn import functional as F
 
 from scipy.signal import cont2discrete
 
-# ------------------------------------------------------------------------------
-
-def leCunUniform(tensor):
-    """ 
-        LeCun Uniform Initializer
-        References: 
-        [1] https://keras.rstudio.com/reference/initializer_lecun_uniform.html
-        [2] Source code of _calculate_correct_fan can be found in https://pytorch.org/docs/stable/_modules/torch/nn/init.html
-        [3] Yann A LeCun, Léon Bottou, Genevieve B Orr, and Klaus-Robert Müller. Efficient backprop. In Neural networks: Tricks of the trade, pages 9–48. Springer, 2012
-    """
-    fan_in = init._calculate_correct_fan(tensor, "fan_in")
-    limit = np.sqrt(3. / fan_in)
-    init.uniform_(tensor, -limit, limit) # fills the tensor with values sampled from U(-limit, limit)
-
 
 class LMUFFT(nn.Module):
     """
@@ -49,29 +35,29 @@ class LMUFFT(nn.Module):
         self.seq_len = seq_len
         self.theta = theta
 
-        self.W_u = nn.Linear(in_features = input_size, out_features = 1)
-        self.W_h = nn.Linear(in_features = memory_size + input_size, out_features = hidden_size)
+        self.W_u = nn.Linear(in_features=input_size, out_features=1)
+        self.W_h = nn.Linear(in_features=memory_size + input_size, out_features=hidden_size)
 
-        Q = np.arange(self.memory_size, dtype = np.float64).reshape(-1, 1)
+        Q = np.arange(self.memory_size, dtype=np.float64).reshape(-1, 1)
         R = (2*Q + 1) / self.theta
-        i, j = np.meshgrid(Q, Q, indexing = "ij")
+        i, j = np.meshgrid(Q, Q, indexing="ij")
 
         # Continuous
-        A = R * np.where(i < j, -1, (-1.0)**(i - j + 1))
-        B = R * ((-1.0)**Q)
+        A = R * np.where(i < j, -1, (-1.0) ** (i - j + 1))
+        B = R * ((-1.0) ** Q)
         C = np.ones((1, self.memory_size))
         D = np.zeros((1,))
 
         # Convert to discrete
         A, B, C, D, dt = cont2discrete(
-            system = (A, B, C, D), 
-            dt = 1.0, 
-            method = "zoh"
+            system=(A, B, C, D), 
+            dt=1.0, 
+            method="zoh"
         )
 
         # To torch.tensor
-        A = torch.from_numpy(A).float() # [memory_size, memory_size]
-        B = torch.from_numpy(B).float() # [memory_size, 1]
+        A = torch.from_numpy(A).float()  # [memory_size, memory_size]
+        B = torch.from_numpy(B).float()  # [memory_size, 1]
         
         H = []
         A_i = torch.eye(self.memory_size)
@@ -79,10 +65,10 @@ class LMUFFT(nn.Module):
             H.append(A_i @ B)
             A_i = A @ A_i
 
-        H = torch.cat(H, dim=-1) # [memory_size, seq_len]
-        fft_H = fft.rfft(H, n=2*self.seq_len, dim=-1) # [memory_size, seq_len + 1]
+        H = torch.cat(H, dim=-1)  # [memory_size, seq_len]
+        fft_H = fft.rfft(H, n=2*self.seq_len, dim=-1)  # [memory_size, seq_len + 1]
 
-        self.register_buffer("fft_H", fft_H.unsqueeze(0)) # [1, memory_size, seq_len + 1]
+        self.register_buffer("fft_H", fft_H.unsqueeze(0))  # [1, memory_size, seq_len + 1]
 
     def forward(self, x):
         """
