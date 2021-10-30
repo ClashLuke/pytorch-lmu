@@ -51,18 +51,6 @@ class LMUFFT(nn.Module):
 
         self.W_u = nn.Linear(in_features = input_size, out_features = 1)
         self.W_h = nn.Linear(in_features = memory_size + input_size, out_features = hidden_size)
-        
-        A, B = self.stateSpaceMatrices()
-        self.register_buffer("A", A) # [memory_size, memory_size]
-        self.register_buffer("B", B) # [memory_size, 1]
-
-        H, fft_H = self.impulse()
-        self.register_buffer("H", H) # [memory_size, seq_len]
-        self.register_buffer("fft_H", fft_H.unsqueeze(0)) # [1, memory_size, seq_len + 1]
-
-
-    def stateSpaceMatrices(self):
-        """ Returns the discretized state space matrices A and B """
 
         Q = np.arange(self.memory_size, dtype = np.float64).reshape(-1, 1)
         R = (2*Q + 1) / self.theta
@@ -85,8 +73,9 @@ class LMUFFT(nn.Module):
         A = torch.from_numpy(A).float() # [memory_size, memory_size]
         B = torch.from_numpy(B).float() # [memory_size, 1]
         
-        return A, B
-
+        H, fft_H = self.impulse()
+        self.register_buffer("H", H) # [memory_size, seq_len]
+        self.register_buffer("fft_H", fft_H.unsqueeze(0)) # [1, memory_size, seq_len + 1]
 
     def impulse(self):
         """ Returns the matrices H and the 1D Fourier transform of H (Equations 23, 26 of the paper) """
