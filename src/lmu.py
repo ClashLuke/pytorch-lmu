@@ -110,8 +110,4 @@ class LMUFFT(nn.Module):
 
         # Equation 20 of the paper (W_m@m + W_x@x  W@[m;x])
         input_h = torch.cat((m, x), dim=-1) # [batch_size, seq_len, memory_size + input_size]
-        h = torch.relu(self.W_h(input_h)) # [batch_size, seq_len, hidden_size]
-
-        h_n = h[:, -1, :] # [batch_size, hidden_size]
-
-        return h, h_n
+        return torch.relu(self.W_h(input_h)) # [batch_size, seq_len, hidden_size]
