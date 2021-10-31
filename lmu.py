@@ -61,5 +61,5 @@ class LMUFFT(nn.Module):
         fft_u = fft.rfft(u, n=2 * seq_len, dim=-1)
         temp = fft_u.view(-1, 1, seq_len + 1) * self.fft_H
         m = fft.irfft(temp, n=2 * seq_len, dim=-1)
-        m = m[:, :, :-1].view(batch_size, -1, seq_len)
+        m = m[:, :, :seq_len].view(batch_size, -1, seq_len)
         return self.W_h(m) + out[:, :self.hidden_size] 
